@@ -49,7 +49,7 @@ Options:
                         number of digits to prepend
     -a, --digits-after NUM, default=2
                         number of digits to append
-    -T, --padding-type TYPE, default=fixed
+    -T, --padding-type TYPE, default=fixed-back
                         how to apply padding
     -l, --padding-length NUM, default=1 for fixed, 42 for adaptive
                         how much to pad
@@ -75,8 +75,15 @@ WORD TRANSFORMATIONS:
 
 PADDING TYPES:
     none
-    fixed    (add padding-length padding-characters to front and back)
-    adaptive (if unpadded password is less than padding-length, append padding-characters to meet length)
+    fixed-front    (add padding-length padding-characters to front)
+    fixed-back     (add padding-length padding-characters to back)
+    fixed-both     (add padding-length padding-characters to front and back)
+    fixed          (alias for fixed-both)
+    adaptive-front (if length of unpadded password is less than padding-length,
+                    prepend padding-characters to meet length)
+    adaptive-back  (if length of unpadded password is less than padding-length,
+                    append padding-characters to meet length)
+    adaptive       (alias for adaptive-back)
 
 RNG TYPES:
     os-rng (the system's native secure RNG)
@@ -84,13 +91,11 @@ RNG TYPES:
 ```
 
 ```
-$ fmn-passgen -c 3
-?emblem|DOORMAN|luckiness|BROADNESS|19?
-=obsessed@CIRCULATE@epidemic@SPOTTED@90=
-!blouse|CHANNEL|venture|XEROX|79!
+$ fmn-passgen
+emblem|DOORMAN|luckiness|BROADNESS|19?
 ```
 
-![428259203-99956de7-2685-4c55-8ab7-c343fca2b88a](https://github.com/user-attachments/assets/6ec1453a-6b93-44cd-b1b8-7c8747fb21b1)
+![image](https://github.com/user-attachments/assets/3c5b7541-f154-4064-b6cf-3c02ad71d471)
 
 ## Features
 

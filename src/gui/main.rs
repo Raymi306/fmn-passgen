@@ -171,6 +171,10 @@ impl App {
                         ui.style_mut().spacing.item_spacing =
                             egui::vec2(COMPACT_SPACING, COMPACT_SPACING);
                         for (description, item) in PaddingType::NAME_MEMBER_ARR {
+                            // displaying aliases is unnecessary
+                            if matches!(item, PaddingType::Fixed | PaddingType::Adaptive) {
+                                continue;
+                            }
                             ui.selectable_value(
                                 &mut self.config_curr.padding_type,
                                 *item,
