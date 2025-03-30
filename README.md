@@ -95,7 +95,7 @@ $ fmn-passgen
 emblem|DOORMAN|luckiness|BROADNESS|19?
 ```
 
-![428259203-99956de7-2685-4c55-8ab7-c343fca2b88a](https://github.com/user-attachments/assets/6ec1453a-6b93-44cd-b1b8-7c8747fb21b1)
+![image](https://github.com/user-attachments/assets/3c5b7541-f154-4064-b6cf-3c02ad71d471)
 
 ## Features
 
