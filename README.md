@@ -16,6 +16,12 @@ These settings can be easily adjusted to change the memorability and strength of
 
 Note that if you are a slow typer and you do not need the password to be memorable, a standard randomly generated password can provide equivalent protection with less overall length.
 
+## Versioning
+
+Currently, there is an attempt at following semantic versioning.
+When considering breaking changes, only the CLI is taken into account; the library has no impact on versioning.
+So, if the usage of the CLI is changed in a backwards-incompatible manner, this would warrant a major version bump.
+
 ## Inspiration
 - [xkcd 936](https://xkcd.com/936/)
 - https://www.xkpasswd.net/
@@ -129,7 +135,8 @@ On most Linux systems, you can validate the archive by running `sha256sum -c $CH
 
 ## [Benchmarks](benchmarks)
 
-Benchmarks are run on my local machine, inside an Ubuntu 22 WSL2 VM.
+Benchmarks thus far have been run inside an Ubuntu 22 WSL2 VM on the original author's machine.
+Take timings with a grain of salt, milliseconds aren't terribly important for this tool.
 
 ### Tooling
 
