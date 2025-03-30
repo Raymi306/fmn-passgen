@@ -1,3 +1,4 @@
+#![expect(missing_docs, reason = "derive macros could use some more polish")]
 //! Shared types, enums, and structs.
 use std::fmt;
 
@@ -22,7 +23,9 @@ impl Integer for MinimalSupportedInteger {}
 /// Represent pertinent data when validating data.
 #[derive(Clone, Debug)]
 pub enum ValidationError {
+    /// Validating a number failed.
     InvalidNumber(String, MinimalSupportedInteger, MinimalSupportedInteger),
+    /// Validating an enum failed.
     InvalidEnum(String),
 }
 
@@ -42,22 +45,25 @@ impl std::error::Error for ValidationError {}
 
 /// Give enums superpowers.
 ///
-/// - Allows for referencing the enum's name                           (implemented by derive macro)
-/// - Allows for referencing the kebab-case names of each enum member. (implemented by derive macro)
-/// - Allows for iterating over enum member, enum name pairs           (implemented by derive macro)
-/// - Allows for converting an enum member into it's kebab-case name.  (implemented by derive macro)
-/// - Allows for converting a &str to an enum member.                  (default implementation provided)
-///
 /// Is used in conjunction with the [`StrEnum`] derive macro to provide
 /// low boilerplate "types" that are easy to reason with on the command line.
 pub trait StrEnum: Sized + Default + Clone + Copy
 where
     Self: 'static,
 {
+    /// The enum name as a &str, implemented by derive macro.
     const NAME: &'static str;
+    /// Constant references to enum member name, enum member pairs, implemented by derive macro.
     const NAME_MEMBER_ARR: &[(&str, Self)];
+    /// Convert an enum member into its kebab-case name, implemented by derive macro.
     fn to_static_str(&self) -> &'static str;
+    /// Iterate over enum member name, enum member pairs, implemented by derive macro.
     fn into_iter() -> impl Iterator<Item = &'static (&'static str, Self)>;
+    /// Convert a &str to an enum member.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`ValidationError`] if `member` does not represent a valid enum member.
     fn to_member(member: &str) -> Result<&Self, ValidationError> {
         Self::into_iter()
             // compare str
@@ -94,6 +100,7 @@ where
 /// The different ways words can be transformed.
 #[derive(StrEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WordTransformationType {
+    /// apply no transformation, useful if the wordlist already contains capital words
     None,
     /// correct horse battery staple
     Lower,
@@ -117,6 +124,7 @@ pub enum WordTransformationType {
 /// The different ways padding can be applied.
 #[derive(StrEnum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PaddingType {
+    /// apply no padding
     None,
     /// add padding-length padding-characters to front and back
     #[default]
@@ -137,7 +145,6 @@ pub enum RngType {
 
 #[cfg(test)]
 mod test {
-    #![allow(clippy::unwrap_used, reason = "testing")]
     use super::*;
     use std::mem::discriminant;
 

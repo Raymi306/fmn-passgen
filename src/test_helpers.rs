@@ -1,5 +1,4 @@
 //! Shared testing functionality.
-#![allow(clippy::unwrap_used, reason = "testing")]
 #![cfg(test)]
 
 //provides:
