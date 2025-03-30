@@ -1,1 +1,2 @@
 doc-valid-idents = ["Crypt::HSXKPasswd", ".."]
+allow-unwrap-in-tests = true

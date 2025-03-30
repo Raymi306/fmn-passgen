@@ -1,4 +1,8 @@
 //! Shared testing functionality.
+#![expect(
+    clippy::missing_panics_doc,
+    reason = "these functions are only intended for testing"
+)]
 #![cfg(test)]
 
 //provides:
