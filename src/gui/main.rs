@@ -1,3 +1,4 @@
+//! A GUI interface for fmn-passgen
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // provides:
 // static WORDLIST: &[&str] = &[...]
