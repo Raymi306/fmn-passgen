@@ -144,6 +144,7 @@ Benchmarks are run on my local machine, inside an Ubuntu 22 WSL2 VM.
 - symmetrical padding option, eg `*#$[PASSWORD]$#*`
 - additional CSPRNG options under feature flags?
 - dice RNG feature flag
+- pronounceable pseudowords (similar to Gasser's method)
 
 ### Housekeeping
 
