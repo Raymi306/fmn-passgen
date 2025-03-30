@@ -1,6 +1,11 @@
 #!/bin/sh
 
-VERSION="$(cargo pkgid | cut -f 2 -d '@')"
+PKGID_PREFIX="$(cargo pkgid | cut -f 1 -d ':')"
+if [ "$PKGID_PREFIX" != "path+file" ]; then
+    echo "Unexpected output for `cargo pkgid`, probably need to edit the script again"
+    exit 1
+fi
+VERSION="$(cargo pkgid | cut -f 2 -d '#')"
 COMMIT="$(git rev-parse --verify HEAD)"
 VERIFY_EXIT=$?
 
@@ -33,4 +38,4 @@ echo "- $(stat -c %s target/small/fmn-passgen-gui | numfmt --to=iec) gui, small"
 echo "\n## Wordlist Sizes\n" >> benchmarks/README.md
 echo "- $(stat -c %s wordlists/eff_large_wordlist.txt | numfmt --to=iec) eff_large_wordlist.txt" >> benchmarks/README.md
 
-cp benchmarks/README.md benchmarks/$SHORTCOMMIT.md
+cp benchmarks/README.md benchmarks/$VERSION-$SHORTCOMMIT.md
