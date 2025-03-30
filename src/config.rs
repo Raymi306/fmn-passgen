@@ -151,8 +151,13 @@ impl ConfigBuilder {
         };
         let padding_length = validate_int::<u8>(self.padding_length, 0, 255, {
             match padding_type {
-                PaddingType::Fixed => default::PADDING_LENGTH_FIXED,
-                PaddingType::Adaptive => default::PADDING_LENGTH_ADAPTIVE,
+                PaddingType::Fixed
+                | PaddingType::FixedFront
+                | PaddingType::FixedBack
+                | PaddingType::FixedBoth => default::PADDING_LENGTH_FIXED,
+                PaddingType::Adaptive | PaddingType::AdaptiveFront | PaddingType::AdaptiveBack => {
+                    default::PADDING_LENGTH_ADAPTIVE
+                }
                 PaddingType::None => 0,
             }
         })?;
@@ -226,7 +231,7 @@ mod tests {
     #[test]
     fn test_padding_length_default_changes_with_padding_type() {
         let config = ConfigBuilder::new()
-            .padding_type(Some("adaptive".to_owned()))
+            .padding_type(Some("adaptive-front".to_owned()))
             .build()
             .unwrap();
         assert_eq!(config.padding_length, default::PADDING_LENGTH_ADAPTIVE);

@@ -14,9 +14,9 @@ pub trait Integer: std::str::FromStr + Into<MinimalSupportedInteger> + PartialOr
 /// To support more standard integer types, add additional impls.
 ///
 /// # Example
-/// ```
-/// // impl Integer for u8 {}
-/// // type MinimalSupportedInteger = u16;
+/// ```ignore
+/// impl Integer for u8 {}
+/// type MinimalSupportedInteger = u16;
 /// ```
 impl Integer for MinimalSupportedInteger {}
 
@@ -126,10 +126,20 @@ pub enum WordTransformationType {
 pub enum PaddingType {
     /// apply no padding
     None,
-    /// add padding-length padding-characters to front and back
+    /// add padding-length padding-characters to front
+    FixedFront,
     #[default]
+    /// add padding-length padding-characters to back
+    FixedBack,
+    /// add padding-length padding-characters to front and back
+    FixedBoth,
+    /// alias for [`FixedBoth`]
     Fixed,
+    /// if unpadded password is less than padding-length, prepend padding-characters to desired length
+    AdaptiveFront,
     /// if unpadded password is less than padding-length, append padding-characters to desired length
+    AdaptiveBack,
+    /// alias for [`AdaptiveBack`]
     Adaptive,
 }
 

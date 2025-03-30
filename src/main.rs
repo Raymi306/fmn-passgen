@@ -157,9 +157,15 @@ fn main() -> ExitCode {
         println!("    random-upper-lower      (correct HORSE battery staple)");
         println!("\nPADDING TYPES:");
         println!("    none");
-        println!("    fixed    (add padding-length padding-characters to front and back)");
-        #[rustfmt::skip]
-        println!("    adaptive (if unpadded password is less than padding-length, append padding-characters to meet length)");
+        println!("    fixed-front    (add padding-length padding-characters to front)");
+        println!("    fixed-back     (add padding-length padding-characters to back)");
+        println!("    fixed-both     (add padding-length padding-characters to front and back)");
+        println!("    fixed          (alias for fixed-both)");
+        println!("    adaptive-front (if length of unpadded password is less than padding-length,");
+        println!("                    prepend padding-characters to meet length)");
+        println!("    adaptive-back  (if length of unpadded password is less than padding-length,");
+        println!("                    append padding-characters to meet length)");
+        println!("    adaptive       (alias for adaptive-back)");
         println!("\nRNG TYPES:");
         println!("    os-rng (the system's native secure RNG)");
         println!("    csprng (a reasonably secure userspace RNG)");

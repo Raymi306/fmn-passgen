@@ -165,20 +165,36 @@ where
             .copied()
     }
     /// Given the password we have created thus far, create the before and after padding.
-    /// [`PaddingType::Fixed`] prepends and appends an equal number of padding characters.
-    /// [`PaddingType::Adaptive`] will append padding characters to meet the desired length.
     /// Note that if the desired length is shorter than the unpadded password, adaptive
     /// padding is a no-op.
     fn create_padding(&mut self, password: &str) -> (Option<String>, Option<String>) {
         let len = self.config.padding_length as usize;
         let (before_len, after_len) = match self.config.padding_type {
             PaddingType::None => (0, 0),
-            PaddingType::Fixed => (len, len),
-            PaddingType::Adaptive => (0, len.saturating_sub(password.chars().count())),
+            PaddingType::FixedFront => (len, 0),
+            PaddingType::FixedBack => (0, len),
+            PaddingType::FixedBoth | PaddingType::Fixed => (len, len),
+            PaddingType::AdaptiveFront => (len.saturating_sub(password.chars().count()), 0),
+            PaddingType::AdaptiveBack | PaddingType::Adaptive => {
+                (0, len.saturating_sub(password.chars().count()))
+            }
         };
         let padding_characters = self.config.padding_characters.choose(&mut self.rng);
-        let before = iter::repeat(padding_characters).take(before_len).collect();
-        let after = iter::repeat(padding_characters).take(after_len).collect();
+        let mut before: Option<String> =
+            iter::repeat(padding_characters).take(before_len).collect();
+        let mut after: Option<String> = iter::repeat(padding_characters).take(after_len).collect();
+        // Some("") and None work about the same in practice, but sticking with one is
+        // easier to test and reason about.
+        if let Some(ref v) = before {
+            if v.is_empty() {
+                before = None;
+            }
+        }
+        if let Some(ref v) = after {
+            if v.is_empty() {
+                after = None;
+            }
+        }
         (before, after)
     }
     /// Create a password.
@@ -234,6 +250,16 @@ where
 mod tests {
     use super::*;
     use crate::test_helpers::*;
+
+    const PADDING_TYPES: [PaddingType; 7] = [
+        PaddingType::FixedFront,
+        PaddingType::FixedBack,
+        PaddingType::FixedBoth,
+        PaddingType::Fixed,
+        PaddingType::AdaptiveFront,
+        PaddingType::AdaptiveBack,
+        PaddingType::Adaptive,
+    ];
 
     #[test]
     fn test_filter_wordlist() {
@@ -360,90 +386,118 @@ mod tests {
         let mut maker = make_seeded_maker(1);
         maker.config.padding_type = PaddingType::None;
         let (left, right) = maker.create_padding("");
-        assert_eq!("", &left.unwrap());
-        assert_eq!("", &right.unwrap());
+        assert!(left.is_none());
+        assert!(right.is_none());
+    }
+    #[test]
+    fn test_create_padding_empty() {
+        let mut maker = make_seeded_maker(1);
+        maker.config.padding_characters = Vec::new();
+        for padding_type in PADDING_TYPES {
+            maker.config.padding_type = padding_type;
+            let (left, right) = maker.create_padding("");
+            assert!(left.is_none());
+            assert!(right.is_none());
+        }
+    }
+    #[test]
+    fn test_create_padding_no_padding_length() {
+        let mut maker = make_seeded_maker(1);
+        maker.config.padding_length = 0;
+        for padding_type in PADDING_TYPES {
+            maker.config.padding_type = padding_type;
+            let (left, right) = maker.create_padding("");
+            assert!(left.is_none());
+            assert!(right.is_none());
+        }
     }
     #[test]
     fn test_create_padding_defaults() {
         let mut maker = make_seeded_maker(1);
         let (left, right) = maker.create_padding("");
-        assert_eq!("?", &left.unwrap());
+        assert!(left.is_none());
         assert_eq!("?", &right.unwrap());
     }
     #[test]
-    fn test_create_padding_fixed_custom() {
+    fn test_create_padding_fixed_both_custom() {
         let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Fixed;
+        maker.config.padding_type = PaddingType::FixedBoth;
         maker.config.padding_length = 3;
         let (left, right) = maker.create_padding("");
         assert_eq!("???", &left.unwrap());
         assert_eq!("???", &right.unwrap());
     }
-
     #[test]
-    fn test_create_padding_fixed_empty() {
+    fn test_create_padding_fixed_front_custom() {
         let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Fixed;
-        maker.config.padding_characters = Vec::new();
+        maker.config.padding_type = PaddingType::FixedFront;
+        maker.config.padding_length = 3;
+        let (left, right) = maker.create_padding("");
+        assert_eq!("???", &left.unwrap());
+        assert!(right.is_none());
+    }
+    #[test]
+    fn test_create_padding_fixed_back_custom() {
+        let mut maker = make_seeded_maker(1);
+        maker.config.padding_type = PaddingType::FixedBack;
+        maker.config.padding_length = 3;
         let (left, right) = maker.create_padding("");
         assert!(left.is_none());
-        assert!(right.is_none());
-    }
-    #[test]
-    fn test_create_padding_fixed_no_padding_length() {
-        let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Fixed;
-        maker.config.padding_length = 0;
-        let (left, right) = maker.create_padding("");
-        assert_eq!("", &left.unwrap());
-        assert_eq!("", &right.unwrap());
-    }
-    #[test]
-    fn test_create_padding_adaptive_empty() {
-        let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Adaptive;
-        maker.config.padding_characters = Vec::new();
-        let (left, right) = maker.create_padding("");
-        assert_eq!("", &left.unwrap());
-        assert!(right.is_none());
+        assert_eq!("???", &right.unwrap());
     }
     #[test]
     fn test_create_padding_adaptive_no_change() {
+        let adaptive_paddings = [
+            PaddingType::Adaptive,
+            PaddingType::AdaptiveBack,
+            PaddingType::AdaptiveFront,
+        ];
         let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Adaptive;
         maker.config.padding_length = 1;
-        let (left, right) = maker.create_padding("Hello");
-        assert_eq!("", &left.unwrap());
-        assert_eq!("", &right.unwrap());
+        for padding_type in adaptive_paddings {
+            maker.config.padding_type = padding_type;
+            let (left, right) = maker.create_padding("Hello");
+            assert!(left.is_none());
+            assert!(right.is_none());
+        }
     }
     #[test]
-    fn test_create_padding_adaptive_ok() {
+    fn test_create_padding_adaptive_front_ok() {
         let mut maker = make_seeded_maker(1);
-        maker.config.padding_type = PaddingType::Adaptive;
+        maker.config.padding_type = PaddingType::AdaptiveFront;
         maker.config.padding_length = 10;
         let (left, right) = maker.create_padding("Hello");
-        assert_eq!("", &left.unwrap());
+        assert_eq!("?????", &left.unwrap());
+        assert!(right.is_none());
+    }
+    #[test]
+    fn test_create_padding_adaptive_back_ok() {
+        let mut maker = make_seeded_maker(1);
+        maker.config.padding_type = PaddingType::AdaptiveBack;
+        maker.config.padding_length = 10;
+        let (left, right) = maker.create_padding("Hello");
+        assert!(left.is_none());
         assert_eq!("?????", &right.unwrap());
     }
     #[test]
     fn test_make_password_default() {
         let mut maker = make_seeded_maker_big_list(1);
         let password = maker.make_password();
-        assert_eq!("+startling;SHAFT;cactus;SHACK;15+", &password);
+        assert_eq!("startling;SHAFT;cactus;SHACK;15+", &password);
     }
     #[test]
     fn test_make_passwords_default() {
         let mut maker = make_seeded_maker_big_list(1);
         let passwords = maker.make_passwords();
-        assert_eq!("+startling;SHAFT;cactus;SHACK;15+", &passwords[0]);
+        assert_eq!("startling;SHAFT;cactus;SHACK;15+", &passwords[0]);
     }
     #[test]
     fn test_create_3_passwords() {
         let mut maker = make_seeded_maker_big_list(1);
         maker.config.count = 3;
         let passwords = maker.make_passwords();
-        assert_eq!("+startling;SHAFT;cactus;SHACK;15+", &passwords[0]);
-        assert_eq!("$bullwhip@CHUNK@uniquely@FOOTBALL@03$", &passwords[1]);
-        assert_eq!("-overarch$LETDOWN$valid$PUSHY$27-", &passwords[2]);
+        assert_eq!("startling;SHAFT;cactus;SHACK;15+", &passwords[0]);
+        assert_eq!("bullwhip@CHUNK@uniquely@FOOTBALL@03$", &passwords[1]);
+        assert_eq!("overarch$LETDOWN$valid$PUSHY$27-", &passwords[2]);
     }
 }
