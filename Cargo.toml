@@ -60,6 +60,9 @@ allow_attributes = { level = "forbid", priority = 0 }
 allow_attributes_without_reason = { level = "forbid", priority = 0 }
 unwrap_used = { level = "deny", priority = 0 }
 
+[lints]
+workspace = true
+
 [profile.small]
 inherits = "release"
 opt-level = "s"

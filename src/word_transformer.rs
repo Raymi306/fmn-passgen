@@ -2,6 +2,7 @@
 use rand::prelude::*;
 
 /// correct horse battery staple
+#[must_use]
 pub fn lower(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -10,6 +11,7 @@ pub fn lower(words: Vec<String>) -> Vec<String> {
 }
 
 /// CORRECT HORSE BATTERY STAPLE
+#[must_use]
 pub fn upper(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -18,6 +20,7 @@ pub fn upper(words: Vec<String>) -> Vec<String> {
 }
 
 /// Correct Horse Battery Staple
+#[must_use]
 pub fn capitalize_first(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -26,6 +29,7 @@ pub fn capitalize_first(words: Vec<String>) -> Vec<String> {
 }
 
 /// correcT horsE batterY staplE
+#[must_use]
 pub fn capitalize_last(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -34,6 +38,7 @@ pub fn capitalize_last(words: Vec<String>) -> Vec<String> {
 }
 
 /// cORRECT hORSE bATTERY sTAPLE
+#[must_use]
 pub fn capitalize_not_first(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -42,6 +47,7 @@ pub fn capitalize_not_first(words: Vec<String>) -> Vec<String> {
 }
 
 /// correct HORSE battery STAPLE
+#[must_use]
 pub fn alternating_lower_upper(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()
@@ -57,6 +63,7 @@ pub fn alternating_lower_upper(words: Vec<String>) -> Vec<String> {
 }
 
 /// CORRECT horse BATTERY staple
+#[must_use]
 pub fn alternating_upper_lower(words: Vec<String>) -> Vec<String> {
     words
         .into_iter()

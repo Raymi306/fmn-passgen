@@ -24,8 +24,11 @@ pub struct PasswordMaker<T>
 where
     T: TryRngCore,
 {
+    /// A random number generator
     pub rng: UnwrapErr<T>,
+    /// A config
     pub config: Config,
+    /// A wordlist
     pub wordlist: Vec<String>,
 }
 
@@ -54,6 +57,8 @@ impl<T> PasswordMaker<T>
 where
     T: TryRngCore + Default,
 {
+    #[must_use]
+    /// Make a new [`PasswordMaker`]
     pub fn new(config: Config) -> Self {
         Self {
             rng: T::default().unwrap_err(),

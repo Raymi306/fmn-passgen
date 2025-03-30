@@ -14,6 +14,7 @@ use crate::config::ConfigBuilder;
 use crate::password_maker::PasswordMaker;
 
 /// Makes a [`PasswordMaker`] with reproducible random output and a small wordlist.
+#[must_use]
 pub fn make_seeded_maker(seed: u64) -> PasswordMaker<SmallRng> {
     let rng = SmallRng::seed_from_u64(seed).unwrap_err();
     PasswordMaker {
@@ -24,6 +25,7 @@ pub fn make_seeded_maker(seed: u64) -> PasswordMaker<SmallRng> {
 }
 
 /// Makes a [`PasswordMaker`] with reproducible random output and a real wordlist.
+#[must_use]
 pub fn make_seeded_maker_big_list(seed: u64) -> PasswordMaker<SmallRng> {
     let rng = SmallRng::seed_from_u64(seed).unwrap_err();
     PasswordMaker {
