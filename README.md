@@ -157,6 +157,7 @@ Take timings with a grain of salt, milliseconds aren't terribly important for th
 - additional CSPRNG options under feature flags?
 - dice RNG feature flag
 - pronounceable pseudowords (similar to Gasser's method)
+- KeePass plugin
 
 ### Housekeeping
 
