@@ -9,7 +9,7 @@ However, you may find yourself in need of a password to protect the password man
 
 The default settings require memorization of 2 random symbols, 2 digits, and 4 words with a simple mixture of capital and lowercase letters:
 
-`:unending=RUST=stumble=OUTSKIRTS=94:`
+`unending=RUST=stumble=OUTSKIRTS=94:`
 
 This should require less time to memorize than an equivalently strong password of random characters, while also being faster and less error-prone to enter for individuals comfortable with typing.
 These settings can be easily adjusted to change the memorability and strength of the generated passwords.
