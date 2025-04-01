@@ -31,6 +31,7 @@ path = "src/gui/main.rs"
 required-features = ["gui"]
 
 [dependencies]
+nom = "8.0"
 eframe = { version = "0.31", optional = true }
 egui_extras = { version = "0.31", features = ["image"], optional = true }
 image = { version = "0.25", features = ["png"], optional = true }
