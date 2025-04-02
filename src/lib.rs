@@ -8,3 +8,5 @@ pub mod password_maker;
 pub mod test_helpers;
 pub mod types;
 pub mod word_transformer;
+
+pub mod parser;
