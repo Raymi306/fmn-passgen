@@ -1,149 +1,71 @@
 //! TODO and WIP
+#![allow(unused)]
+
 use nom::{
   IResult,
   Parser,
-  branch::alt,
-  bytes::complete::escaped,
-  bytes::complete::is_not,
-  bytes::complete::tag_no_case,
-  character::complete::alpha1,
-  character::complete::alphanumeric1,
-  character::complete::anychar,
-  character::complete::char,
-  character::complete::digit1,
-  character::complete::multispace0,
   character::complete::one_of,
-  combinator::map_res,
-  combinator::opt,
-  combinator::value,
-  multi::many1,
-  sequence::delimited,
-  sequence::pair,
-  sequence::preceded,
-  sequence::separated_pair,
 };
 
-const ESCAPE_CONTROL_CHAR: char = '\\';
+/*
+<nonzero_digit> ::= [1-9]
+<digit> ::= [0-9]
+<letter> ::= [a-z]
+<identifier> ::= <letter>+ <digit>*
+<escaped> ::= "{" | "}" | "[" | "]" | "(" | ")"
+/* any character NOT in escaped */
+<noescape_anychar> ::= "#"
+<repeat> ::= "!" <nonzero_digit>? <digit>
+<source> ::= <identifier> | "[" (<noescape_anychar>)+ "]"
+<label> ::= <nonzero_digit>? <digit> "@"
+<labeled_source> ::= <label>? <source>
+<filter_expr> ::= (<pipe> | <pipe_spaced>) <identifier>
+<equals> ::= "="
+<equals_spaced> ::= " = "
+<key_value> ::= <letter>+ (<equals> | <equals_spaced>) (<letter>+ | <digit>+)
+<key_value_seq> ::= (<key_value> ", ")*
+<key_value_expr> ::= ":" " "? <key_value_seq> <key_value>
+<pipe> ::= "|"
+<pipe_spaced> ::= " | "
+<block> ::= "(" <labeled_source> <key_value_expr>? <filter_expr>* ")" <repeat>?
+<group> ::= "{" <block>+ "}" <repeat>?
+<expr> ::= (<group> | <block>)+
+*/
 
-fn escaped_chars(input: &str) -> IResult<&str, char> {
-    one_of("(){}[]\\").parse(input)
+fn nonzero_digit(input: &str) -> IResult<&str, char> {
+    one_of("123456789").parse(input)
 }
 
-#[derive(Debug, Clone)]
-enum Source {
-    Word,
-    Digit,
-    Symbol,
-    Characters(String),
+fn digit(input: &str) -> IResult<&str, char> {
+    one_of("0123456789").parse(input)
 }
 
-fn label_parser(input: &str) -> IResult<&str, u8> {
-    let result = pair(map_res(digit1, |s: &str| s.parse::<u8>()), char('@')).parse(input)?;
-    Ok((result.0, result.1.0))
+fn letter(input: &str) -> IResult<&str, char> {
+    one_of("abcdefghijklmnopqrstuvwxyz").parse(input)
 }
 
-// TODO need to handle escaping for all instances of delimited
-
-fn source_parser(input: &str) -> IResult<&str, Source> {
-    alt((
-        value(Source::Word, alt((tag_no_case("word"), tag_no_case("w")))),
-        value(Source::Digit, alt((tag_no_case("digit"), tag_no_case("d")))),
-        value(Source::Symbol, alt((tag_no_case("symbol"), tag_no_case("s")))),
-        delimited(
-            char('['),
-            escaped(many1(), ESCAPE_CONTROL_CHAR, escaped_chars),
-            char(']'),
-        ).map(|s: &str| Source::Characters(s.to_string())),
-        //delimited(char('['), is_not("]"), char(']')).map(|s: &str| Source::Characters(s.to_string())),
-    )).parse(input)
-}
-
-fn key_value_pairs_parser(input: &str) -> IResult<&str, (&str, &str)> {
-    preceded(
-        char(':'),
-        separated_pair(
-            alpha1,
-            delimited(multispace0, char('='), multispace0),
-            alphanumeric1,
-        ),
-    ).parse(input)
-}
-
-fn block_parser(input: &str) -> IResult<&str, &str> {
-    let raw_result: IResult<&str, &str> = delimited(
-        char('('),
-        is_not(")"),
-        char(')')
-    ).parse(input);
-    let label = opt(label_parser);
-    unimplemented!();
-}
-
-fn repeat_parser(input: &str) -> IResult<&str, (char, &str)> {
-    pair(char('!'), digit1).parse(input)
-}
-
-fn all_blocks_parser(input: &str) -> IResult<&str, Vec<&str>> {
-    many1(block_parser).parse(input)
-}
-
+// TODO remove me
+#[warn(unused)]
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
-    fn test_label() {
-        let result_err = label_parser("xyz@");
-        assert!(result_err.is_err());
-        let result_ok = label_parser("1@");
-        assert!(result_ok.is_ok());
+    fn test_nonzero_digit_ok() {
+        let result = nonzero_digit("1").unwrap();
+        assert_eq!(result.1, '1');
     }
     #[test]
-    fn test_source() {
-        let result_err = source_parser("foo");
-        assert!(result_err.is_err());
-        let result = source_parser("[1234]").unwrap();
-        // TODO destructuring to clean this up
-        if let Source::Characters(inner) = result.1 {
-            assert_eq!("1234", &inner);
-        } else {
-            panic!();
-        }
+    fn test_nonzero_digit_err() {
+        nonzero_digit("0").unwrap_err();
     }
     #[test]
-    fn test_demo() {
-        /*
-        let result = delimited(
-            char('['),
-            escaped(many1(anychar), ESCAPE_CONTROL_CHAR, escaped_chars),
-            char(']'),
-        ).parse("[1234]").unwrap();
-        */
-        //let result = escaped(anychar, ESCAPE_CONTROL_CHAR, one_of("(){}[]")).parse("[1234]");
-        let result = escaped(digit1, '\\', one_of("\"n\\")).parse("1234");
-        println!("{:?}", result);
-        assert!(false);
-    }
-    /*
-    #[test]
-    fn test_block() {
-        let result_err = block("(abcd");
-        assert!(result_err.is_err());
-        let result_ok = block("(abcd)");
-        assert!(result_ok.is_ok());
+    fn test_digit_ok() {
+        let result = digit("0").unwrap();
+        assert_eq!(result.1, '0');
     }
     #[test]
-    fn test_repeat() {
-        let result_err = repeat("!(");
-        assert!(result_err.is_err());
-        let result_ok = repeat("!32");
-        assert!(result_ok.is_ok());
+    fn test_digit_err() {
+        digit("x").unwrap_err();
     }
-    #[test]
-    fn test_all_blocks() {
-        let result = all_blocks("(abcd)(foo)(bar)").unwrap();
-        assert_eq!(result.1.len(), 3);
-        assert!(result.0.is_empty());
-    }
-    */
 }
