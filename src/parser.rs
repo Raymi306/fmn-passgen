@@ -1,6 +1,10 @@
 //! TODO and WIP
 #![allow(unused)]
 
+// provides:
+// static WORDLIST: &[&str] = &[...]
+include!(concat!(env!("OUT_DIR"), "/wordlist.rs"));
+
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, is_a, tag, tag_no_case};
 use nom::character::complete::{char, digit1, none_of, one_of};
@@ -8,9 +12,12 @@ use nom::combinator::{all_consuming, map, map_res, opt, recognize, success, valu
 use nom::multi::{many0, many1};
 use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{IResult, Parser};
+use rand::TryRngCore;
+use rand::prelude::*;
+use rand_core::UnwrapErr;
 
 #[derive(Clone, Debug, PartialEq)]
-enum Source {
+enum SourceKind {
     Word(Option<u8>, Option<u8>),
     Letter,
     Symbol,
@@ -18,9 +25,64 @@ enum Source {
     CharacterList(String),
 }
 
+impl SourceKind {
+    fn apply<R: TryRngCore>(&self, rng: UnwrapErr<R>) -> String {
+        match &self {
+            Self::Word(min, max) => {
+                let filtered_indices: Vec<usize> = WORDLIST
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, word)| (min..=max).contains(&word.chars().count()))
+                    .map(|(i, _)| i)
+                    .collect();
+                if filtered_indices.is_empty() {
+                    return String::new();
+                }
+                let index = filtered_indices.choose(&mut rng).expect(
+                    concat!(
+                        "invariant 1: `filtered_indices` must not be empty and should have been guarded above.\n",
+                        "invariant 2: size_hint on a slice iterator with no intermediary ",
+                        "iterator adapters should always be accurate.",
+                    )
+                );
+                WORDLIST[*index].to_owned()
+            },
+            /*
+            Self::Letter => {
+
+            },
+            Self::Symbol => {
+
+            },
+            Self::Digit => {
+
+            },
+            Self::CharacterList(String) => {
+
+            },
+        }
+        fn letter(&mut self) -> char {
+            ('a'..='z').chain('A'..='Z').choose(&mut self.rng).unwrap()
+        }
+        fn symbol(&mut self) -> char {
+            "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+            .chars()
+            .choose(&mut self.rng).unwrap()
+        }
+        fn digit(&mut self) -> char {
+            ('0'..='9').choose(&mut self.rng).unwrap()
+        }
+        fn character(&mut self, choices: String) -> char {
+            choices.chars().choose(&mut self.rng).unwrap()
+        }
+        */
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 struct LabeledSource {
-    source: Source,
+    source: SourceKind,
     label: Option<u8>,
 }
 
@@ -33,6 +95,54 @@ enum Filter {
     CapitalizeLast,
     CapitalizeNotFirst,
     CapitalizeNotLast,
+}
+
+impl Filter {
+    fn apply(&self, input: &str) -> String {
+        match &self {
+            Self::Reversed => input.chars().rev().collect(),
+            Self::Upper => input.to_uppercase(),
+            Self::Lower => input.to_lowercase(),
+            Self::CapitalizeFirst => {
+                let first = input.chars().take(1).map(|c| c.to_ascii_uppercase());
+                first.chain(input.chars().skip(1)).collect()
+            },
+            Self::CapitalizeLast => {
+                // UTF character length weirdness reminder
+                let num_chars = input.chars().count();
+                let len_minus_1 = num_chars.saturating_sub(1);
+                input.chars()
+                    .take(len_minus_1)
+                    .chain(
+                        input.chars()
+                            .skip(len_minus_1)
+                            .take(1)
+                            .map(|c| c.to_ascii_uppercase()),
+                    )
+                    .collect()
+            },
+            Self::CapitalizeNotFirst => {
+                input.chars()
+                    .take(1)
+                    .chain(input.chars().skip(1).map(|c| c.to_ascii_uppercase()))
+                    .collect()
+            },
+            Self::CapitalizeNotLast => {
+                // UTF character length weirdness reminder
+                let num_chars = input.chars().count();
+                let len_minus_1 = num_chars.saturating_sub(1);
+                input.chars()
+                    .take(len_minus_1)
+                    .map(|c| c.to_ascii_uppercase())
+                    .chain(
+                        input.chars()
+                            .skip(len_minus_1)
+                            .take(1)
+                    )
+                    .collect()
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -145,15 +255,15 @@ fn character_list(input: &str) -> IResult<&str, String> {
     terminated(preceded(char('['), anychar_escaped_transform), char(']')).parse(input)
 }
 
-fn source(input: &str) -> IResult<&str, Source> {
+fn source(input: &str) -> IResult<&str, SourceKind> {
     if let Ok(chars) = character_list(input) {
-        return Ok((chars.0, Source::CharacterList(chars.1)));
+        return Ok((chars.0, SourceKind::CharacterList(chars.1)));
     }
     alt((
-        value(Source::Word(None, None), tag_no_case("word")),
-        value(Source::Letter, tag_no_case("letter")),
-        value(Source::Symbol, tag_no_case("symbol")),
-        value(Source::Digit, tag_no_case("digit")),
+        value(SourceKind::Word(None, None), tag_no_case("word")),
+        value(SourceKind::Letter, tag_no_case("letter")),
+        value(SourceKind::Symbol, tag_no_case("symbol")),
+        value(SourceKind::Digit, tag_no_case("digit")),
     ))
     .parse(input)
 }
@@ -260,7 +370,7 @@ fn block_inner(input: &str) -> IResult<&str, (LabeledSource, Vec<Filter>)> {
             if let Some(kv) = key_values {
                 let mut min = None;
                 let mut max = None;
-                if !matches!(labeled_source.source, Source::Word(_, _)) {
+                if !matches!(labeled_source.source, SourceKind::Word(_, _)) {
                     // only Word has key value support currently
                     return Err(());
                 }
@@ -270,7 +380,7 @@ fn block_inner(input: &str) -> IResult<&str, (LabeledSource, Vec<Filter>)> {
                         KeyValue::Max(v) => max = Some(v),
                     }
                 }
-                labeled_source.source = Source::Word(min, max);
+                labeled_source.source = SourceKind::Word(min, max);
             }
             Ok((labeled_source, filters))
         },
@@ -452,7 +562,7 @@ mod test {
                 assert_eq!(v.blocks.len(), 4);
                 let expected_1 = Block {
                     source: LabeledSource {
-                        source: Source::Word(Some(3), Some(11)),
+                        source: SourceKind::Word(Some(3), Some(11)),
                         label: None,
                     },
                     filters: vec![Filter::Lower],
@@ -460,7 +570,7 @@ mod test {
                 };
                 let expected_2 = Block {
                     source: LabeledSource {
-                        source: Source::Symbol,
+                        source: SourceKind::Symbol,
                         label: Some(1),
                     },
                     filters: vec![],
@@ -468,7 +578,7 @@ mod test {
                 };
                 let expected_3 = Block {
                     source: LabeledSource {
-                        source: Source::Word(None, None),
+                        source: SourceKind::Word(None, None),
                         label: None,
                     },
                     filters: vec![Filter::Upper],
@@ -476,7 +586,7 @@ mod test {
                 };
                 let expected_4 = Block {
                     source: LabeledSource {
-                        source: Source::Symbol,
+                        source: SourceKind::Symbol,
                         label: Some(1),
                     },
                     filters: vec![],
@@ -494,7 +604,7 @@ mod test {
             ExpressionItem::Block(v) => {
                 assert_eq!(v.repeat, Some(4));
                 assert!(v.filters.is_empty());
-                assert!(matches!(v.source.source, Source::Digit));
+                assert!(matches!(v.source.source, SourceKind::Digit));
             }
             _ => assert!(false),
         }
@@ -503,7 +613,7 @@ mod test {
             ExpressionItem::Block(v) => {
                 assert_eq!(v.repeat, None);
                 assert!(v.filters.is_empty());
-                assert!(matches!(v.source.source, Source::Symbol));
+                assert!(matches!(v.source.source, SourceKind::Symbol));
             }
             _ => assert!(false),
         }
