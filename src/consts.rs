@@ -1,21 +1,15 @@
 //! Crate constants.
 
 /// 0-9
-pub const DIGIT_ALPHABET: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-#[expect(missing_docs, reason = "the names are clear enough")]
-/// Configuration defaults.
-pub mod default {
-    /// !@$%^&*-_+=:|~?/.
-    pub const SYMBOL_ALPHABET: [char; 18] = [
-        '!', '@', '$', '%', '^', '&', '*', '-', '_', '+', '=', ':', '|', '~', '?', '/', '.', ';',
-    ];
-    pub const COUNT: u8 = 1;
-    pub const WORD_COUNT: u8 = 4;
-    pub const WORD_MIN_LENGTH: u8 = 3;
-    pub const WORD_MAX_LENGTH: u8 = 11;
-    pub const DIGITS_BEFORE: u8 = 0;
-    pub const DIGITS_AFTER: u8 = 2;
-    pub const PADDING_LENGTH_FIXED: u8 = 1;
-    pub const PADDING_LENGTH_ADAPTIVE: u8 = 42;
-}
+pub const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+/// displayable symbols
+pub const SYMBOLS: [char; 32] = [
+    '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=',
+    '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~',
+];
+/// a-zA-Z
+pub const LETTERS: [char; 52] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+];
