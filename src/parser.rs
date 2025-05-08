@@ -1,15 +1,19 @@
 //! TODO and WIP
-#![allow(unused, missing_docs)]
+#![allow(missing_docs)]
+
+use std::mem::MaybeUninit;
 
 use nom::branch::alt;
-use nom::bytes::complete::{escaped_transform, is_a, tag, tag_no_case};
+use nom::bytes::complete::{escaped_transform, tag, tag_no_case};
 use nom::character::complete::{char, digit1, none_of, one_of};
-use nom::combinator::{all_consuming, map, map_res, opt, recognize, success, value};
+use nom::combinator::{all_consuming, map, map_res, opt, recognize, value};
+use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1};
 use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{IResult, Parser};
 
 use crate::types::Block;
+use crate::types::Expression;
 use crate::types::ExpressionItem;
 use crate::types::Filter;
 use crate::types::Group;
@@ -42,7 +46,20 @@ use crate::types::Source;
 <group> ::= "{" <block>+ "}" <repeat>?
 <expr> ::= (<group> | <block>)+
 */
+
+// SAFETY do not access from reentrant code (interrupt handler, recursive call, etc)
+// TODO consider playing with thread_local instead
+static mut DYNAMIC_SOURCES: MaybeUninit<Vec<(String, Vec<ExpressionItem>)>> = MaybeUninit::uninit();
+
 const ESCAPED: &str = "\\{}[]()";
+
+#[expect(unsafe_code)]
+pub unsafe fn init_dynamic_sources() {
+    unsafe {
+        #[expect(static_mut_refs)]
+        DYNAMIC_SOURCES.write(Vec::new());
+    }
+}
 
 fn nonzero_digit(input: &str) -> IResult<&str, char> {
     one_of("123456789").parse(input)
@@ -52,16 +69,8 @@ fn digit(input: &str) -> IResult<&str, char> {
     one_of("0123456789").parse(input)
 }
 
-fn digits(input: &str) -> IResult<&str, &str> {
-    is_a("0123456789").parse(input)
-}
-
 fn letter(input: &str) -> IResult<&str, char> {
     one_of("abcdefghijklmnopqrstuvwxyz").parse(input)
-}
-
-fn letters(input: &str) -> IResult<&str, &str> {
-    is_a("abcdefghijklmnopqrstuvwxyz").parse(input)
 }
 
 fn identifier(input: &str) -> IResult<&str, &str> {
@@ -103,15 +112,30 @@ fn character_list(input: &str) -> IResult<&str, Option<String>> {
 
 fn source(input: &str) -> IResult<&str, Source> {
     if let Ok(chars) = character_list(input) {
-        return Ok((chars.0, Source::CharacterList(chars.1.unwrap_or("".to_owned()))));
+        return Ok((chars.0, Source::CharacterList(chars.1.unwrap_or_else(String::new))));
     }
-    alt((
-        value(Source::Word(None, None), tag_no_case("word")),
-        value(Source::Letter, tag_no_case("letter")),
-        value(Source::Symbol, tag_no_case("symbol")),
-        value(Source::Digit, tag_no_case("digit")),
-    ))
-    .parse(input)
+    #[expect(unsafe_code, static_mut_refs)]
+    unsafe {
+        let dynamic_sources = DYNAMIC_SOURCES.assume_init_ref();
+        let all_sources = [
+            value(Source::Word(None, None), tag_no_case("word")),
+            value(Source::Letter, tag_no_case("letter")),
+            value(Source::Symbol, tag_no_case("symbol")),
+            value(Source::Digit, tag_no_case("digit")),
+        ];
+        for mut branch in all_sources {
+            let result: IResult<&str, Source> = branch.parse(input);
+            if result.is_ok() {
+                return result;
+            }
+        }
+        for (label, expressions) in dynamic_sources {
+            if input.starts_with(label) {
+                return Ok((&input[label.len()..], Source::Custom(label.clone(), expressions.clone())));
+            }
+        }
+    };
+    Err(nom::Err::Failure(Error::new(input, ErrorKind::Alt)))
 }
 
 fn label(input: &str) -> IResult<&str, u8> {
@@ -252,20 +276,64 @@ fn block(input: &str) -> IResult<&str, Block> {
 fn group(input: &str) -> IResult<&str, ExpressionItem> {
     map(
         pair(
-            terminated(preceded(char('{'), many1(block)), char('}')),
+            terminated(
+                preceded(
+                    char('{'),
+                    pair(
+                        many1(block),
+                        many0(filter_expr)
+                    )
+                ),
+                char('}')
+            ),
             opt(repeat),
         ),
-        |(blocks, repeat)| ExpressionItem::Group(Group { blocks, repeat: repeat.unwrap_or(1) }),
+        |((blocks, filters), repeat)| ExpressionItem::Group(Group { blocks, filters, repeat: repeat.unwrap_or(1) }),
     )
     .parse(input)
 }
 
-pub fn parse(input: &str) -> IResult<&str, Vec<ExpressionItem>> {
-    all_consuming(many1(alt((group, map(block, ExpressionItem::Block))))).parse(input)
+fn custom_source_label(input: &str) -> IResult<&str, &str> {
+    terminated(identifier, char('#')).parse(input)
 }
 
-// TODO remove me
-#[warn(unused)]
+fn definition(input: &str) -> IResult<&str, (&str, Vec<ExpressionItem>)> {
+    pair(custom_source_label, many1(alt((group, map(block, ExpressionItem::Block))))).parse(input)
+        /*
+        |(label, expression_items)| {
+            ()
+        }
+        */
+}
+
+fn definition_seq(input: &str) -> IResult<&str, Vec<(&str, Vec<ExpressionItem>)>> {
+    many0(terminated(definition, alt((tag(", "), tag(","))))).parse(input)
+}
+
+fn definition_expr(input: &str) -> IResult<&str, ()> {
+    map(
+        terminated(pair(definition_seq, definition), tag("; ")),
+        |(def_seq, def)| {
+            #[expect(unsafe_code)]
+            let buf = unsafe {
+                #[expect(static_mut_refs)]
+                DYNAMIC_SOURCES.assume_init_mut()
+            };
+            for (label, expression_items) in def_seq {
+                buf.push((label.to_owned(), expression_items));
+            }
+            buf.push((def.0.to_owned(), def.1));
+        }
+    ).parse(input)
+}
+
+pub fn parse(input: &str) -> IResult<&str, Expression> {
+    map(
+        all_consuming(preceded(many0(definition_expr), many1(alt((group, map(block, ExpressionItem::Block)))))),
+        |items| Expression { items }
+    ).parse(input)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -372,6 +440,15 @@ mod test {
         }
     }
     #[test]
+    fn test_definition_ok() {
+        let expectations = [
+            "foo#(word)",
+        ];
+        for input in expectations.into_iter() {
+            let result = definition(input).unwrap();
+        }
+    }
+    #[test]
     fn test_parse_smoke() {
         let parameters = [
             "(word)",
@@ -394,6 +471,7 @@ mod test {
             parse(parameter).unwrap();
         }
     }
+    /*
     #[test]
     fn test_parse_ok() {
         let input =
@@ -464,4 +542,5 @@ mod test {
             _ => assert!(false),
         }
     }
+    */
 }

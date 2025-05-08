@@ -1,14 +1,10 @@
 // TODO
-#![allow(unused, missing_docs)]
+#![allow(missing_docs)]
 //! Provides the [`PasswordMaker`] struct.
 //!
 //! The password generation algorithm is implemented here.
-// provides:
-// static WORDLIST: &[&str] = &[...]
-include!(concat!(env!("OUT_DIR"), "/wordlist.rs"));
 
 use rand::TryRngCore;
-use rand::prelude::*;
 use rand_core::UnwrapErr;
 
 use crate::types::Expression;

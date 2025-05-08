@@ -1,5 +1,5 @@
 //! TODO and WIP
-#![allow(unused, missing_docs)]
+#![allow(missing_docs, unsafe_code)]
 
 // TODO why is everything public
 
@@ -7,9 +7,9 @@
 // static WORDLIST: &[&str] = &[...]
 include!(concat!(env!("OUT_DIR"), "/wordlist.rs"));
 
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::iter;
+use std::mem::MaybeUninit;
 
 use rand::TryRngCore;
 use rand::prelude::*;
@@ -20,25 +20,26 @@ use crate::consts::LETTERS;
 use crate::consts::SYMBOLS;
 
 // SAFETY do not access from reentrant code (interrupt handler, recursive call, etc)
-static mut LABEL_MAP: OnceCell<HashMap<(&str, u8), String>> = OnceCell::new();
-// TODO consider playing with thread_local!
+// TODO consider playing with thread_local instead
+static mut LABEL_MAP: MaybeUninit<HashMap<(String, u8), String>> = MaybeUninit::uninit();
 
 pub trait Generator {
     fn generate<T: TryRngCore>(&self, rng: &mut UnwrapErr<T>) -> String;
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Source {
     Word(Option<u8>, Option<u8>),
     Letter,
     Symbol,
     Digit,
     CharacterList(String),
-    //Custom(String, Vec<ExpressionItem>)
+    Custom(String, Vec<ExpressionItem>)
 }
 
 impl Generator for Source {
     fn generate<R: TryRngCore>(&self, rng: &mut UnwrapErr<R>) -> String {
+        #[expect(clippy::unwrap_used)]
         match &self {
             Self::Word(optional_min, optional_max) => {
                 let min = optional_min.map_or(0, |inner| inner as usize);
@@ -72,20 +73,18 @@ impl Generator for Source {
                     choices.chars().choose(rng).unwrap().to_string()
                 }
             }
-            /*
             Self::Custom(_, expression) => {
                 let mut string_builder = Vec::new();
                 for item in expression {
-                    string_builder.push(item.apply(rng))
+                    string_builder.push(item.generate(rng));
                 }
                 string_builder.join("")
             }
-            */
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct LabeledSource {
     pub source: Source,
     pub label: Option<u8>,
@@ -93,12 +92,46 @@ pub struct LabeledSource {
 
 impl Generator for LabeledSource {
     fn generate<R: TryRngCore>(&self, rng: &mut UnwrapErr<R>) -> String {
-        // temporarily disable labeling
+        if let Some(label) = self.label {
+            let type_string = match &self.source {
+                Source::Word(_, _) => "word".to_owned(),
+                Source::Letter => "letter".to_owned(),
+                Source::Symbol => "symbol".to_owned(),
+                Source::Digit => "digit".to_owned(),
+                Source::CharacterList(_) => "character_list".to_owned(),
+                Source::Custom(val, _) => val.clone(),
+            };
+            let cache = unsafe {
+                #[expect(static_mut_refs)]
+                LABEL_MAP.assume_init_mut()
+            };
+            if let Some(inner) = cache.get(&(type_string.clone(), label)) {
+                return inner.to_string();
+            }
+            let result = self.source.generate(rng);
+            cache.insert((type_string, label), result.clone());
+            return result;
+        }
         self.source.generate(rng)
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl LabeledSource {
+    pub unsafe fn init_cache() {
+        unsafe {
+            #[expect(static_mut_refs)]
+            LABEL_MAP.write(HashMap::new());
+        }
+    }
+    pub unsafe fn clear_cache() {
+        unsafe {
+            #[expect(static_mut_refs)]
+            LABEL_MAP.assume_init_mut().clear();
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Filter {
     Reversed,
     Upper,
@@ -110,6 +143,7 @@ pub enum Filter {
 }
 
 impl Filter {
+    #[must_use]
     pub fn apply(&self, input: &str) -> String {
         match &self {
             Self::Reversed => input.chars().rev().collect(),
@@ -155,13 +189,13 @@ impl Filter {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KeyValue {
     Min(u8),
     Max(u8),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Block {
     pub source: LabeledSource,
     pub filters: Vec<Filter>,
@@ -170,7 +204,7 @@ pub struct Block {
 
 impl Generator for Block {
     fn generate<T: TryRngCore>(&self, rng: &mut UnwrapErr<T>) -> String {
-        if let Some(label) = self.source.label {
+        if self.source.label.is_some() {
             // if there is a label and a repeat, only need to generate a result once
             let mut result = self.source.generate(rng);
             for filter in &self.filters {
@@ -191,10 +225,10 @@ impl Generator for Block {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Group {
     pub blocks: Vec<Block>,
-    //pub filters: Vec<Filter>,
+    pub filters: Vec<Filter>,
     pub repeat: u8,
 }
 
@@ -206,11 +240,15 @@ impl Generator for Group {
                 string_builder.push(block.generate(rng));
             }
         }
-        string_builder.join("")
+        let mut result = string_builder.join("");
+        for filter in &self.filters {
+            result = filter.apply(&result);
+        }
+        result
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ExpressionItem {
     Block(Block),
     Group(Group),
@@ -226,18 +264,17 @@ impl Generator for ExpressionItem {
 }
 
 pub struct Expression {
-    items: Vec<ExpressionItem>
+    pub items: Vec<ExpressionItem>
 }
 
 impl Generator for Expression {
     fn generate<T: TryRngCore>(&self, rng: &mut UnwrapErr<T>) -> String {
-        #![allow(unsafe_code, static_mut_refs)]
-        unsafe {
-            let _ = LABEL_MAP.set(HashMap::new()).unwrap_or(());
-        };
         let mut string_builder = Vec::new();
         for item in &self.items {
             string_builder.push(item.generate(rng));
+        }
+        unsafe {
+            LabeledSource::clear_cache();
         }
         string_builder.join("")
     }

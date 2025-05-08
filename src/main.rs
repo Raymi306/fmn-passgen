@@ -25,7 +25,9 @@ use getopts::Options;
 use rand::rngs::OsRng;
 
 use fmn_passgen::password_maker::PasswordMaker;
+use fmn_passgen::parser::init_dynamic_sources;
 use fmn_passgen::parser::parse;
+use fmn_passgen::types::LabeledSource;
 
 /// The entrypoint.
 ///
@@ -71,6 +73,11 @@ fn main() -> ExitCode {
         }
     };
 
+    #[allow(unsafe_code)]
+    unsafe {
+        init_dynamic_sources();
+    }
+
     let format_str = matches.opt_str("f").unwrap_or(
         "{(word|lower)(1@symbol)(word|upper)(1@symbol)}!2(digit)!4(symbol)".to_owned()
     );
@@ -83,6 +90,10 @@ fn main() -> ExitCode {
         }
     };
 
+    #[allow(unsafe_code)]
+    unsafe {
+        LabeledSource::init_cache();
+    }
     let result = PasswordMaker::<OsRng>::default().make_passwords(&expressions, count);
     for password in result {
         println!("{password}");
