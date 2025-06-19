@@ -24,9 +24,9 @@ use std::process::ExitCode;
 use getopts::Options;
 use rand::rngs::OsRng;
 
-use fmn_passgen::password_maker::PasswordMaker;
 use fmn_passgen::parser::init_dynamic_sources;
 use fmn_passgen::parser::parse;
+use fmn_passgen::password_maker::PasswordMaker;
 use fmn_passgen::types::LabeledSource;
 
 /// The entrypoint.
@@ -46,12 +46,7 @@ fn main() -> ExitCode {
         "the format string describing the desired password",
         "STR",
     );
-    opts.optopt(
-        "c",
-        "count",
-        "how many passwords to make",
-        "NUM, default=1",
-    );
+    opts.optopt("c", "count", "how many passwords to make", "NUM, default=1");
     let matches = match opts.parse(&args[1..]) {
         Ok(v) => v,
         Err(failure) => {
@@ -78,9 +73,9 @@ fn main() -> ExitCode {
         init_dynamic_sources();
     }
 
-    let format_str = matches.opt_str("f").unwrap_or(
-        "{(word|lower)(1@symbol)(word|upper)(1@symbol)}!2(digit)!4(symbol)".to_owned()
-    );
+    let format_str = matches
+        .opt_str("f")
+        .unwrap_or("{(word|lower)(1@symbol)(word|upper)(1@symbol)}!2(digit)!4(symbol)".to_owned());
 
     let expressions = match parse(&format_str) {
         Ok(v) => v.1,

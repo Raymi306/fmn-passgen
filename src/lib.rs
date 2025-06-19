@@ -4,5 +4,5 @@
 //! is to support the binaries associated with this crate.
 pub mod consts;
 pub mod parser;
-pub mod types;
 pub mod password_maker;
+pub mod types;

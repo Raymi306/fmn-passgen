@@ -712,14 +712,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "config-builder-derive"
-version = "0.0.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1200,7 +1192,6 @@ dependencies = [
 name = "fmn-passgen"
 version = "1.2.0"
 dependencies = [
- "config-builder-derive",
  "eframe",
  "egui_extras",
  "getopts",
@@ -1209,7 +1200,6 @@ dependencies = [
  "quote",
  "rand 0.9.0",
  "rand_core 0.9.3",
- "strenum-derive",
 ]
 
 [[package]]
@@ -3202,25 +3192,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "strenum-derive"
-version = "0.0.0"
-dependencies = [
- "quote",
- "stringcase",
- "syn",
-]
-
-[[package]]
 name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
-
-[[package]]
-name = "stringcase"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72abeda133c49d7bddece6c154728f83eec8172380c80ab7096da9487e20d27c"
 
 [[package]]
 name = "strum"

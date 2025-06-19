@@ -16,6 +16,7 @@ use rand::prelude::*;
 use rand_core::UnwrapErr;
 
 use crate::consts::DIGITS;
+use crate::consts::KOREMUTAKE_SYLLABLES;
 use crate::consts::LETTERS;
 use crate::consts::SYMBOLS;
 
@@ -34,7 +35,8 @@ pub enum Source {
     Symbol,
     Digit,
     CharacterList(String),
-    Custom(String, Vec<ExpressionItem>)
+    Custom(String, Vec<ExpressionItem>),
+    Koremutake(Option<u8>, Option<u8>),
 }
 
 impl Generator for Source {
@@ -80,6 +82,18 @@ impl Generator for Source {
                 }
                 string_builder.join("")
             }
+            Self::Koremutake(optional_min, optional_max) => {
+                let min = optional_min.map_or(2, |inner| inner as usize);
+                let max = optional_max.map_or(4, |inner| inner as usize);
+                let num_syllables = rng.random_range(min..=max);
+                let mut string_builder = Vec::new();
+                for _ in 0..num_syllables {
+                    // there are exactly 128 koremutake syllables or 7 bits
+                    let idx: u8 = rng.random_range(0..128);
+                    string_builder.push(KOREMUTAKE_SYLLABLES[idx as usize]);
+                }
+                string_builder.join("")
+            }
         }
     }
 }
@@ -99,6 +113,7 @@ impl Generator for LabeledSource {
                 Source::Symbol => "symbol".to_owned(),
                 Source::Digit => "digit".to_owned(),
                 Source::CharacterList(_) => "character_list".to_owned(),
+                Source::Koremutake(_, _) => "koremutake".to_owned(),
                 Source::Custom(val, _) => val.clone(),
             };
             let cache = unsafe {
@@ -264,7 +279,7 @@ impl Generator for ExpressionItem {
 }
 
 pub struct Expression {
-    pub items: Vec<ExpressionItem>
+    pub items: Vec<ExpressionItem>,
 }
 
 impl Generator for Expression {

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["strenum-derive", "config-builder-derive"]
+members = []
 
 [workspace.package]
 edition = "2024"
@@ -38,8 +38,6 @@ image = { version = "0.25", features = ["png"], optional = true }
 getopts = "0.2"
 rand = "0.9"
 rand_core = "0.9"
-config-builder-derive = { path = "config-builder-derive" }
-strenum-derive = { path = "strenum-derive" }
 
 [build-dependencies]
 quote = "1.0"

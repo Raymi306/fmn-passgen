@@ -107,12 +107,19 @@ fn repeat(input: &str) -> IResult<&str, u8> {
 }
 
 fn character_list(input: &str) -> IResult<&str, Option<String>> {
-    terminated(preceded(char('['), opt(anychar_escaped_transform)), char(']')).parse(input)
+    terminated(
+        preceded(char('['), opt(anychar_escaped_transform)),
+        char(']'),
+    )
+    .parse(input)
 }
 
 fn source(input: &str) -> IResult<&str, Source> {
     if let Ok(chars) = character_list(input) {
-        return Ok((chars.0, Source::CharacterList(chars.1.unwrap_or_else(String::new))));
+        return Ok((
+            chars.0,
+            Source::CharacterList(chars.1.unwrap_or_else(String::new)),
+        ));
     }
     #[expect(unsafe_code, static_mut_refs)]
     unsafe {
@@ -122,6 +129,7 @@ fn source(input: &str) -> IResult<&str, Source> {
             value(Source::Letter, tag_no_case("letter")),
             value(Source::Symbol, tag_no_case("symbol")),
             value(Source::Digit, tag_no_case("digit")),
+            value(Source::Koremutake(None, None), tag_no_case("koremutake")),
         ];
         for mut branch in all_sources {
             let result: IResult<&str, Source> = branch.parse(input);
@@ -131,7 +139,10 @@ fn source(input: &str) -> IResult<&str, Source> {
         }
         for (label, expressions) in dynamic_sources {
             if input.starts_with(label) {
-                return Ok((&input[label.len()..], Source::Custom(label.clone(), expressions.clone())));
+                return Ok((
+                    &input[label.len()..],
+                    Source::Custom(label.clone(), expressions.clone()),
+                ));
             }
         }
     };
@@ -238,19 +249,25 @@ fn block_inner(input: &str) -> IResult<&str, (LabeledSource, Vec<Filter>)> {
         (labeled_source, opt(key_value_expr), many0(filter_expr)),
         |(mut labeled_source, key_values, filters)| {
             if let Some(kv) = key_values {
-                let mut min = None;
-                let mut max = None;
-                if !matches!(labeled_source.source, Source::Word(_, _)) {
-                    // only Word has key value support currently
+                if !matches!(
+                    labeled_source.source,
+                    Source::Word(_, _) | Source::Koremutake(_, _)
+                ) {
                     return Err(());
                 }
+                let mut min = None;
+                let mut max = None;
                 for inner in kv {
                     match inner {
                         KeyValue::Min(v) => min = Some(v),
                         KeyValue::Max(v) => max = Some(v),
                     }
                 }
-                labeled_source.source = Source::Word(min, max);
+                labeled_source.source = match labeled_source.source {
+                    Source::Word(_, _) => Source::Word(min, max),
+                    Source::Koremutake(_, _) => Source::Koremutake(min, max),
+                    _ => unreachable!(),
+                };
             }
             Ok((labeled_source, filters))
         },
@@ -277,18 +294,18 @@ fn group(input: &str) -> IResult<&str, ExpressionItem> {
     map(
         pair(
             terminated(
-                preceded(
-                    char('{'),
-                    pair(
-                        many1(block),
-                        many0(filter_expr)
-                    )
-                ),
-                char('}')
+                preceded(char('{'), pair(many1(block), many0(filter_expr))),
+                char('}'),
             ),
             opt(repeat),
         ),
-        |((blocks, filters), repeat)| ExpressionItem::Group(Group { blocks, filters, repeat: repeat.unwrap_or(1) }),
+        |((blocks, filters), repeat)| {
+            ExpressionItem::Group(Group {
+                blocks,
+                filters,
+                repeat: repeat.unwrap_or(1),
+            })
+        },
     )
     .parse(input)
 }
@@ -298,12 +315,16 @@ fn custom_source_label(input: &str) -> IResult<&str, &str> {
 }
 
 fn definition(input: &str) -> IResult<&str, (&str, Vec<ExpressionItem>)> {
-    pair(custom_source_label, many1(alt((group, map(block, ExpressionItem::Block))))).parse(input)
-        /*
-        |(label, expression_items)| {
-            ()
-        }
-        */
+    pair(
+        custom_source_label,
+        many1(alt((group, map(block, ExpressionItem::Block)))),
+    )
+    .parse(input)
+    /*
+    |(label, expression_items)| {
+        ()
+    }
+    */
 }
 
 fn definition_seq(input: &str) -> IResult<&str, Vec<(&str, Vec<ExpressionItem>)>> {
@@ -323,15 +344,20 @@ fn definition_expr(input: &str) -> IResult<&str, ()> {
                 buf.push((label.to_owned(), expression_items));
             }
             buf.push((def.0.to_owned(), def.1));
-        }
-    ).parse(input)
+        },
+    )
+    .parse(input)
 }
 
 pub fn parse(input: &str) -> IResult<&str, Expression> {
     map(
-        all_consuming(preceded(many0(definition_expr), many1(alt((group, map(block, ExpressionItem::Block)))))),
-        |items| Expression { items }
-    ).parse(input)
+        all_consuming(preceded(
+            many0(definition_expr),
+            many1(alt((group, map(block, ExpressionItem::Block)))),
+        )),
+        |items| Expression { items },
+    )
+    .parse(input)
 }
 
 #[cfg(test)]
@@ -441,9 +467,7 @@ mod test {
     }
     #[test]
     fn test_definition_ok() {
-        let expectations = [
-            "foo#(word)",
-        ];
+        let expectations = ["foo#(word)"];
         for input in expectations.into_iter() {
             let result = definition(input).unwrap();
         }
